@@ -22,6 +22,11 @@ const tangoSchema = new mongoose.Schema({
         opposite: [constraintPairSchema],   // for ≠ signs
     },
     solution: [[String]], // 6x6 grid with complete solution
+    solutionHash: {
+        type: String,
+        required: true,
+        index: true  // Add index for faster lookups
+    },
     difficulty: {
         type: String,
         enum: ['easy', 'medium', 'hard']
@@ -32,6 +37,6 @@ const tangoSchema = new mongoose.Schema({
     }
 });
 
-const Tango = mongoose.model('Tango', tangoSchema);
+const Tango = mongoose.model('tango_games', tangoSchema);
 
 module.exports = Tango;
