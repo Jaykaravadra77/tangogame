@@ -2,101 +2,56 @@ const { generatePuzzle } = require('../common/servicies');
 const crypto = require('crypto');
 const Tango = require('../../models/tango');
 
-const initializeGame = async (difficulty = 'easy', size = 6, maxAttempts = 8) => {
-    // Track attempts to generate a unique puzzle
-    let attempts = 0;
-    let duplicatePuzzle = null;
-    
-    while (attempts < maxAttempts) {
-        const variant = attempts; // 0-7 variants only
-        const gameData = generatePuzzle(size, difficulty, variant);
+// Helper function to format puzzle response
+const formatPuzzleResponse = (puzzleData, isNew) => ({
+    grid: puzzleData.grid,
+    solution: puzzleData.solution,
+    constraints: puzzleData.constraints,
+    difficulty: puzzleData.difficulty,
+    size: puzzleData.size,
+    puzzleNumber: puzzleData.puzzleNumber,
+    isUnique: isNew
+});
+
+const initializeGame = async (difficulty = 'easy', size = 8, maxAttempts = 8) => {
+    // Try to create new unique puzzle
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const gameData = generatePuzzle(size, difficulty, attempt);
         
-        // Check uniqueness using ONLY canonicalForm
-        const existingPuzzle = await Tango.findOne({ 
-            canonicalForm: gameData.canonicalForm 
-        });
-        
-        // If puzzle is unique, proceed with saving it
-        if (!existingPuzzle) {
-            // Get the next puzzle number
-            const lastPuzzle = await Tango.findOne().sort({ puzzleNumber: -1 });
-            const puzzleNumber = lastPuzzle ? lastPuzzle.puzzleNumber + 1 : 1;
-            
-            // Create and save the new puzzle in the database
-            const newPuzzle = new Tango({
+        if (!await Tango.exists({ canonicalForm: gameData.canonicalForm })) {
+            const puzzleNumber = (await Tango.countDocuments()) + 1;
+            await new Tango({
                 ...gameData,
                 puzzleNumber,
-                difficulty,
-                solutionHash: createSolutionHash(gameData.solution, variant)
-            });
-            
-            await newPuzzle.save();
-
-            gameData.isUnique = true;
-            gameData.puzzleNumber = puzzleNumber;
-             
-            return gameData;
-        } else {
-            // Store the duplicate puzzle in case we need it later
-            duplicatePuzzle = existingPuzzle;
+                solutionHash: crypto.createHash('sha256')
+                    .update(`${gameData.solution.flat().join('')}|${attempt}`)
+                    .digest('hex')
+            }).save();
+            return { ...gameData, puzzleNumber, isUnique: true };
         }
-        
-        attempts++;
     }
+
+    // Fallback: Get random existing puzzle of same size
+    const existing = await Tango.aggregate([
+        { $match: { size } },
+        { $sample: { size: 1 } }
+    ]);
     
-    // If we couldn't generate a unique puzzle after maxAttempts
-    console.log(`Failed to generate unique puzzle after ${maxAttempts} attempts. Returning existing puzzle.`);
-    
-    // If we found a duplicate during our attempts, use that
-    if (duplicatePuzzle) {
-        return {
-            grid: duplicatePuzzle.grid,
-            solution: duplicatePuzzle.solution,
-            constraints: duplicatePuzzle.constraints,
-            difficulty: duplicatePuzzle.difficulty,
-            size: duplicatePuzzle.size || size,
-            puzzleNumber: duplicatePuzzle.puzzleNumber, // Use the existing puzzle number
-            isUnique: false
-        };
+    if (existing.length > 0) {
+        const { grid, solution, constraints, difficulty, puzzleNumber } = existing[0];
+        return { grid, solution, constraints, difficulty, size, puzzleNumber, isUnique: false };
     }
-    
-    // Otherwise, find an existing puzzle with the same size and difficulty
-    const existingPuzzle = await Tango.findOne({ 
-        difficulty, 
-        size 
-    }).sort({ puzzleNumber: -1 });
-    
-    // If no matching puzzle exists, try any puzzle with the same size
-    const fallbackPuzzle = existingPuzzle || await Tango.findOne({ size }).sort({ puzzleNumber: -1 });
-    
-    // If still no puzzle, return any puzzle
-    const finalPuzzle = fallbackPuzzle || await Tango.findOne().sort({ puzzleNumber: -1 });
-    
-    if (!finalPuzzle) {
-        throw new Error("No puzzles available in the database");
-    }
-    
-    // Convert the database puzzle to the expected format
-    const returnData = {
-        grid: finalPuzzle.grid,
-        solution: finalPuzzle.solution,
-        constraints: finalPuzzle.constraints,
-        difficulty: finalPuzzle.difficulty,
-        size: finalPuzzle.size || size,
-        puzzleNumber: finalPuzzle.puzzleNumber,
-        isUnique: false
-    };
-    
-    return returnData;
-}
+
+    throw new Error("No puzzles available for this size");
+};
 
 // Function to create a hash from the solution grid
-const createSolutionHash = (solution, variant) => {
+const createSolutionHash = (solution) => {
     // Combine solution and variant information
     const solutionString = Array.isArray(solution) 
         ? solution.map(row => row.join('')).join('')
         : solution;
-    const hashContent = `${solutionString}|${variant}`;
+    const hashContent = `${solutionString}`;
     
     return crypto.createHash('sha256').update(hashContent).digest('hex');
 }
