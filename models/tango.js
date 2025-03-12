@@ -16,16 +16,25 @@ const tangoSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    grid: [[String]], // 6x6 grid with 'sun', 'moon', or null values
+    size: {
+        type: Number,
+        required: true
+    },
+    grid: [[String]], // NxN grid with '0', '1', or null values
     constraints: {
         equals: [constraintPairSchema],    // for = signs
         opposite: [constraintPairSchema],   // for ≠ signs
     },
-    solution: [[String]], // 6x6 grid with complete solution
+    solution: [[String]], // NxN grid with complete solution
     solutionHash: {
         type: String,
         required: true,
         index: true  // Add index for faster lookups
+    },
+    canonicalForm: {
+        type: String,
+        required: true,
+        index: true  // Add index for uniqueness checks
     },
     difficulty: {
         type: String,

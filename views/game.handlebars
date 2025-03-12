@@ -14,6 +14,11 @@
     <button id="showSolutionBtn">Show Solution</button>
 </div>
 
+<div class="puzzle-info">
+    <span id="puzzleNumber"></span>
+    <span id="uniqueStatus"></span>
+</div>
+
 <div class="grid-container">
     <div class="grid-wrapper">
         <h3>Your Progress</h3>
@@ -25,4 +30,18 @@
     </div>
 </div>
 
-<div id="message" class="message" style="display: none;"></div> 
+<div id="message" class="message" style="display: none;"></div>
+
+<script>
+    // Set grid size based on the actual puzzle data
+    function updateGridSize(gridData) {
+        const size = gridData.grid.length;
+        document.documentElement.style.setProperty('--grid-size', size);
+    }
+    
+    // Call this when you receive/update the puzzle data
+    document.addEventListener('DOMContentLoaded', function() {
+        // If you have access to the initial puzzle data, call:
+        // updateGridSize(puzzleData);
+    });
+</script> 

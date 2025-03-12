@@ -6,8 +6,6 @@ const symbolMap = {
 
 class BinaryPuzzleGame {
     constructor() {
-        this.GRID_SIZE = 6;
-        this.SYMBOLS = ['sun', 'moon'];
         this.currentGame = null;
         this.initializeEventListeners();
     }
@@ -23,7 +21,10 @@ class BinaryPuzzleGame {
         try {
             const response = await fetch(`/api/game/new/${difficulty}`);
             this.currentGame = await response.json();
+            
+            this.updateGridSize();
             this.renderGrid();
+            this.updatePuzzleInfo();
             
             const solutionWrapper = document.getElementById('solutionWrapper');
             if (solutionWrapper.style.display === 'block') {
@@ -35,39 +36,75 @@ class BinaryPuzzleGame {
             this.showMessage('Failed to start new game', 'error');
         }
     }
+    
+    updateGridSize() {
+        if (!this.currentGame || !this.currentGame.grid) return;
+        const size = this.currentGame.grid.length;
+        document.documentElement.style.setProperty('--grid-size', size);
+    }
 
     applyConstraints() {
-        // Reset all constraints
-        document.querySelectorAll('.cell').forEach(cell => {
-            cell.classList.remove('constraint', 'constraint-horizontal', 'constraint-vertical', 'constraint-equals', 'constraint-opposite');
-            cell.removeAttribute('data-constraint');
+        if (!this.currentGame || !this.currentGame.constraints) return;
+        
+        // Clear any existing constraints
+        document.querySelectorAll('.constraint-horizontal, .constraint-vertical').forEach(el => {
+            el.classList.remove('constraint-horizontal', 'constraint-vertical');
+            el.removeAttribute('data-constraint');
         });
-
-        if (!this.currentGame.constraints) return;
-
+        
         // Apply equals constraints
         this.currentGame.constraints.equals.forEach(constraint => {
-            const { cells, direction } = constraint;
-            const firstCell = document.querySelector(
-                `.cell[data-row="${cells[0].row}"][data-col="${cells[0].col}"]`
+            const cell1 = constraint.cells[0];
+            const cell2 = constraint.cells[1];
+            
+            // Determine if it's horizontal or vertical
+            const isHorizontal = cell1.row === cell2.row;
+            
+            // Get the first cell (the one that will display the constraint)
+            let firstCell;
+            if (isHorizontal) {
+                // For horizontal constraints, use the leftmost cell
+                firstCell = cell1.col < cell2.col ? cell1 : cell2;
+            } else {
+                // For vertical constraints, use the topmost cell
+                firstCell = cell1.row < cell2.row ? cell1 : cell2;
+            }
+            
+            const cellElement = document.querySelector(
+                `.cell[data-row="${firstCell.row}"][data-col="${firstCell.col}"]`
             );
             
-            if (firstCell) {
-                firstCell.classList.add('constraint', `constraint-${direction}`, 'constraint-equals');
-                firstCell.setAttribute('data-constraint', '=');
+            if (cellElement) {
+                cellElement.classList.add(isHorizontal ? 'constraint-horizontal' : 'constraint-vertical');
+                cellElement.setAttribute('data-constraint', '=');
             }
         });
 
         // Apply opposite constraints
         this.currentGame.constraints.opposite.forEach(constraint => {
-            const { cells, direction } = constraint;
-            const firstCell = document.querySelector(
-                `.cell[data-row="${cells[0].row}"][data-col="${cells[0].col}"]`
+            const cell1 = constraint.cells[0];
+            const cell2 = constraint.cells[1];
+            
+            // Determine if it's horizontal or vertical
+            const isHorizontal = cell1.row === cell2.row;
+            
+            // Get the first cell (the one that will display the constraint)
+            let firstCell;
+            if (isHorizontal) {
+                // For horizontal constraints, use the leftmost cell
+                firstCell = cell1.col < cell2.col ? cell1 : cell2;
+            } else {
+                // For vertical constraints, use the topmost cell
+                firstCell = cell1.row < cell2.row ? cell1 : cell2;
+            }
+            
+            const cellElement = document.querySelector(
+                `.cell[data-row="${firstCell.row}"][data-col="${firstCell.col}"]`
             );
             
-            if (firstCell) {
-                firstCell.classList.add('constraint', `constraint-${direction}`, 'constraint-opposite');
-                firstCell.setAttribute('data-constraint', '≠');
+            if (cellElement) {
+                cellElement.classList.add(isHorizontal ? 'constraint-horizontal' : 'constraint-vertical');
+                cellElement.setAttribute('data-constraint', '≠');
             }
         });
     }
@@ -96,42 +133,28 @@ class BinaryPuzzleGame {
                 solutionGrid.appendChild(cellElement);
             });
         });
-
-        // Apply constraints to solution grid as well
+        
+        // Apply constraints to solution grid too
         this.applyConstraints();
-    }
-
-    findConstraint(row, col) {
-        const hasEquals = this.currentGame.constraints.equals.some(pair => {
-            const [first, second] = pair;
-            return first.row === row && first.col === col && second.col === col + 1;
-        });
-        if (hasEquals) return 'equals';
-
-        const hasOpposite = this.currentGame.constraints.opposite.some(pair => {
-            const [first, second] = pair;
-            return first.row === row && first.col === col && second.col === col + 1;
-        });
-        if (hasOpposite) return 'opposite';
-
-        return null;
-    }
-
-    handleCellClick(row, col) {
-        if (!this.currentGame.grid[row][col]) {
-            this.currentGame.grid[row][col] = 'sun';
-        } else if (this.currentGame.grid[row][col] === 'sun') {
-            this.currentGame.grid[row][col] = 'moon';
-        } else {
-            this.currentGame.grid[row][col] = null;
-        }
-        this.renderGrid();
     }
 
     checkSolution() {
         if (!this.currentGame) return;
 
-        const isComplete = this.currentGame.grid.every(row => 
+        // Get current grid values
+        const currentGrid = [];
+        const gridSize = this.currentGame.grid.length;
+        
+        for (let i = 0; i < gridSize; i++) {
+            currentGrid[i] = [];
+            for (let j = 0; j < gridSize; j++) {
+                const cell = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
+                const value = cell.getAttribute('data-value');
+                currentGrid[i][j] = value ? parseInt(value) : null;
+            }
+        }
+
+        const isComplete = currentGrid.every(row => 
             row.every(cell => cell !== null)
         );
 
@@ -140,8 +163,17 @@ class BinaryPuzzleGame {
             return;
         }
 
-        const isCorrect = JSON.stringify(this.currentGame.grid) === 
-                        JSON.stringify(this.currentGame.solution);
+        // Compare with solution
+        let isCorrect = true;
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                if (currentGrid[i][j] !== this.currentGame.solution[i][j]) {
+                    isCorrect = false;
+                    break;
+                }
+            }
+            if (!isCorrect) break;
+        }
         
         this.showMessage(
             isCorrect ? 'Congratulations! Puzzle solved correctly!' : 'Solution is not correct. Keep trying!',
@@ -180,6 +212,22 @@ class BinaryPuzzleGame {
     hideMessage() {
         const messageEl = document.getElementById('message');
         messageEl.style.display = 'none';
+    }
+
+    updatePuzzleInfo() {
+        const puzzleNumberEl = document.getElementById('puzzleNumber');
+        const uniqueStatusEl = document.getElementById('uniqueStatus');
+
+        if (this.currentGame.puzzleNumber) {
+            puzzleNumberEl.textContent = `Puzzle #${this.currentGame.puzzleNumber}`;
+        }
+
+        if (typeof this.currentGame.isUnique !== 'undefined') {
+            uniqueStatusEl.textContent = this.currentGame.isUnique ? 
+                '✨ Unique Puzzle' : '🔄 Non-Unique Puzzle';
+            uniqueStatusEl.className = this.currentGame.isUnique ? 
+                'unique-status unique' : 'unique-status non-unique';
+        }
     }
 }
 

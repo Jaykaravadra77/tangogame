@@ -9,6 +9,8 @@ const gameResponseSchema = S.object()
     .prop('opposite', S.array())
   )
   .prop('difficulty', S.string())
+  .prop('isUnique', S.boolean())
+  .prop('puzzleNumber', S.number())
 
 // Basic route schemas
 const newGameSchema = {

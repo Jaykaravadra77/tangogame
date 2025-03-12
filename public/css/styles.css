@@ -30,17 +30,17 @@ body {
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(var(--grid-size, 4), 1fr);
     gap: 8px;
     margin-bottom: 20px;
-    padding: 15px 35px 35px 15px;
+    padding: 15px;
     position: relative;
     background: white;
 }
 
 .cell {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     border: 2px solid #ddd;
     display: flex;
     align-items: center;
@@ -50,7 +50,6 @@ body {
     background: white;
     transition: background-color 0.2s;
     position: relative;
-    margin: 2px;
 }
 
 .cell.filled {
@@ -70,51 +69,37 @@ body {
     content: "🌙";
 }
 
-.constraint {
-    position: relative;
+/* Constraint styles - completely revised */
+.constraint-horizontal::after,
+.constraint-vertical::after {
+    position: absolute;
+    font-weight: bold;
+    font-size: 24px;
+    text-align: center;
+    z-index: 10;
 }
 
 .constraint-horizontal::after {
     content: attr(data-constraint);
-    position: absolute;
     right: -16px;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 5;
-    font-weight: bold;
-    font-size: 20px;
-    width: 16px;
-    text-align: center;
-    background: white;
-    box-shadow: 0 0 2px rgba(0,0,0,0.1);
-    padding: 0;
-    line-height: 1;
 }
 
 .constraint-vertical::after {
     content: attr(data-constraint);
-    position: absolute;
     bottom: -16px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 5;
-    font-weight: bold;
-    font-size: 20px;
-    height: 16px;
-    line-height: 16px;
-    background: white;
-    box-shadow: 0 0 2px rgba(0,0,0,0.1);
-    padding: 0;
 }
 
-.constraint-equals::after {
+/* Colors for constraint symbols */
+[data-constraint="="]::after {
     color: #2196F3;
-    content: "=";
 }
 
-.constraint-opposite::after {
+[data-constraint="≠"]::after {
     color: #F44336;
-    content: "≠";
 }
 
 .cell.constraint {
@@ -170,4 +155,38 @@ button:hover {
 
 .solution-grid {
     opacity: 0.8;
+}
+
+/* Add these new styles */
+.puzzle-info {
+    margin: 10px 0;
+    text-align: center;
+    font-size: 1.1em;
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    align-items: center;
+}
+
+#puzzleNumber {
+    color: #666;
+    font-weight: bold;
+}
+
+.unique-status {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.9em;
+}
+
+.unique-status.unique {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+}
+
+.unique-status.non-unique {
+    background-color: #fff3e0;
+    color: #ef6c00;
+    border: 1px solid #ffcc80;
 } 
