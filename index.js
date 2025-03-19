@@ -80,5 +80,3 @@ const start = async () => {
 };
 
 start();
-
-// hey ci/cd
